@@ -15,7 +15,7 @@ In this workshop we
 * Also, you need an [OpenAI account](https://openai.com/) (or an alternative provider).
 
 
-# Part 1: Basic RAG Implementation
+# Part 0: Basic RAG
 
 ## RAG
 
@@ -96,13 +96,15 @@ def search(query):
 ```
 
 **Explanation:**
-- This function will be the foundation of our RAG system
-- It will search through the FAQ database to find relevant information
-- The returned documents will be used to build context for our LLM
+
+- This function is the foundation of our RAG system
+- It looks up in the FAQ to find relevant information
+- The result is used to build context for the LLM
 
 ## Prompt
 
-We create a function to format the search results into a structured context that our LLM can use.
+We create a function to format the search results into
+a structured context that our LLM can use.
 
 ```python
 prompt_template = """
@@ -129,14 +131,16 @@ def build_prompt(query, search_results):
 ```
 
 **Explanation:**
-- Takes search results as input
-- Formats each document with its section, question, and answer
-- Creates a structured text that the LLM can easily parse
-- Returns a clean, formatted context string
+
+- Takes search results
+- Formats each document
+- Put everything in a prompt
 
 
 ## The RAG flow
-We combine our search and LLM components into a complete RAG pipeline.
+
+We add a call to an LLM and combine everything
+into a complete RAG pipeline:
 
 ```python
 from openai import OpenAI
@@ -160,9 +164,14 @@ def rag(query):
 - `build_prompt`: Formats the search results into a prompt
 - `llm`: Makes the API call to the language model
 - `rag`: Combines search and LLM into a single function
-- Creates a complete pipeline from query to answer
 
-# Making it Agentic
+
+# Part 1: Agentic RAG
+
+Now let's make our flow agentic
+
+
+## Agents and Agentic flows 
 
 Agents are AI systems that can:
 
@@ -172,7 +181,11 @@ Agents are AI systems that can:
 - Learn from previous interactions
 - Work towards specific goals
 
+Agentic flow is not necessarily a completely independent agent,
+but it can still make some decisions during the flow execution
+
 A typical agentic flow consists of:
+
 1. Receiving a user request
 2. Analyzing the request and available tools
 3. Deciding on the next action
@@ -181,23 +194,207 @@ A typical agentic flow consists of:
 6. Either completing the task or continuing with more actions
 
 The key difference from basic RAG is that agents can:
+
 - Make multiple search queries
 - Combine information from different sources
 - Decide when to stop searching
 - Use their own knowledge when appropriate
 - Chain multiple actions together
 
-So agents:
+So in agentic RAG, the system
 
-- Have access to the history of previous actions
-- Can make decisions independently based on the current information and the previous actions
-
-
+- has access to the history of previous actions
+- makes decisions independently based on the current information
+  and the previous actions
 
 Let's implement this step by step.
 
-## 2.1 Creating the Agent Prompt Template
-We create a more sophisticated prompt template that enables the agent to make decisions.
+## Making RAG more agentic
+
+First, we'll take the prompt we have so far and make it 
+a little more "agentic":
+
+- Tell the LLM that it can answer the question directly or look up context
+- Provide output templates
+- Show clearly what's the source of the answer
+
+
+
+```python
+prompt_template = """
+You're a course teaching assistant.
+
+You're given a QUESTION from a course student and that you need to answer with your own knowledge and provided CONTEXT.
+At the beginning the context is EMPTY.
+
+<QUESTION>
+{question}
+</QUESTION>
+
+<CONTEXT> 
+{context}
+</CONTEXT>
+
+If CONTEXT is EMPTY, you can use our FAQ database.
+In this case, use the following output template:
+
+{{
+"action": "SEARCH",
+"reasoning": "<add your reasoning here>"
+}}
+
+If you can answer the QUESTION using CONTEXT, use this template:
+
+{{
+"action": "ANSWER",
+"answer": "<your answer>",
+"source": "CONTEXT"
+}}
+
+If the context doesn't contain the answer, use your own knowledge to answer the question
+
+{{
+"action": "ANSWER",
+"answer": "<your answer>",
+"source": "OWN_KNOWLEDGE"
+}}
+""".strip()
+```
+
+
+Let's use it:
+
+```python
+question = "how do I run docker on gentoo?"
+context = "EMPTY"
+
+prompt = prompt_template.format(question=question, context=context)
+print(prompt)
+
+answer = llm(prompt)
+print(answer)
+```
+
+We may get something like that:
+
+```json
+{
+"action": "ANSWER",
+"answer": "To run Docker on Gentoo, you'll first need to ensure that you have the necessary system prerequisites and then install Docker. Follow these steps:\n\n1. **Install Docker**: You can install Docker using the Portage package management system. Open a terminal and run:\n   ```\n   sudo emerge app-emulation/docker\n   ```\n\n2. **Start the Docker service**: You'll need to start the Docker service to begin using it. You can do this with:\n   ```\n   sudo rc-service docker start\n   ```\n\n3. **Add your user to the Docker group**: This will allow you to run Docker commands without `sudo`. Run the following command:\n   ```\n   sudo usermod -aG docker $USER\n   ```\n   Log out and back in for this change to take effect.\n\n4. **Test your installation**: You can verify that Docker is running by executing:\n   ```\n   docker run hello-world\n   ```\n\nIf Docker is installed correctly, this command will download a test image and run it, displaying a confirmation message.\n\nMake sure your system is up to date and review the Gentoo Docker wiki page for any additional configurations specific to your setup.","source": "OWN_KNOWLEDGE"
+}
+```
+
+But if we ask for something that it can't answer:
+
+```python
+question = "how do I join the course?"
+context = "EMPTY"
+
+prompt = prompt_template.format(question=question, context=context)
+answer = llm(prompt)
+print(answer)
+```
+
+We will get this:
+
+```json
+{
+"action": "SEARCH",
+"reasoning": "The context is empty, and I need to find information on how to join the course."
+}
+```
+
+Let's implement make the search:
+
+```python
+search_results = search(question)
+context = build_context(search_results)
+prompt = prompt_template.format(question=question, context=context)
+print(prompt)
+```
+
+Here, `build_context` is a helper function from the previous
+code:
+
+```python
+def build_context(search_results):
+    context = ""
+
+    for doc in search_results:
+        context = context + f"section: {doc['section']}\nquestion: {doc['question']}\nanswer: {doc['text']}\n\n"
+
+    return context.strip()
+```
+
+Now we can query it again:
+
+```python
+answer = llm(prompt)
+print(answer)
+```
+
+And get:
+
+```json
+{
+"action": "ANSWER",
+"answer": "To join the course, you need to register before the start date using the provided registration link. Even if you're unable to register before the course begins, you can still participate by submitting homework, but be mindful of project deadlines. Make sure to also join the course's Telegram channel and the DataTalks.Club's Slack for announcements and updates.",
+"source": "CONTEXT"
+}
+```
+
+Let's put this together:
+
+- First attempt to answer it with our know knowledge
+- If needed, do the lookup and then answer
+
+```python
+def agentic_rag_v1(question):
+    context = "EMPTY"
+    prompt = prompt_template.format(question=question, context=context)
+    answer_json = llm(prompt)
+    answer = json.loads(answer_json)
+    print(answer)
+
+    if answer['action'] == 'SEARCH':
+        print('need to perform search...')
+        search_results = search(question)
+        context = build_context(search_results)
+        
+        prompt = prompt_template.format(question=question, context=context)
+        answer_json = llm(prompt)
+        answer = json.loads(answer_json)
+        print(answer)
+
+    return answer
+```
+
+Test it:
+
+```python
+agentic_rag_v1('how do I join the course?')
+agentic_rag_v1('how patch KDE under FreeBSD?')
+```
+
+
+## Part 2: Agentic search
+
+So far we had two actions only: search and answer.
+
+But we can let our "agent" formulate one or more 
+search queries - and do it for a few iterations until
+we found an answer
+
+
+Let's build a prompt:
+
+- List available actions:
+    - Search in FAQ
+    - Answer using own knowledge
+    - Answer using information extracted from FAQ 
+- Provide access to the previous actions
+- Have clear stop criteria (no more than X iterations)
+- We also specify the output format, so it's easier to parse it
 
 ```python
 prompt_template = """
@@ -273,14 +470,170 @@ If the context doesn't contain the answer, use your own knowledge to answer the 
 """.strip()
 ```
 
-**Explanation:**
-- Defines the agent's capabilities and constraints
-- Provides clear output templates for different actions
-- Includes iteration limits and action history
-- Enables the agent to make decisions about searching vs. answering
+Our code becomes more complicated. For the first iteration,
+we have:
 
-## 2.2 Implementing the Agentic Search
-We create the main agent function that implements the decision-making loop.
+
+```python
+question = "how do I join the course?"
+
+search_queries = []
+search_results = []
+previous_actions = []
+context = build_context(search_results)
+
+prompt = prompt_template.format(
+    question=question,
+    context=context,
+    search_queries="\n".join(search_queries),
+    previous_actions='\n'.join([json.dumps(a) for a in previous_actions]),
+    max_iterations=3,
+    iteration_number=1
+)
+print(prompt)
+```
+
+```python
+answer_json = llm(prompt)
+answer = json.loads(answer_json)
+print(json.dumps(answer, indent=2))
+```
+
+Output:
+
+```json
+{
+  "action": "SEARCH",
+  "reasoning": "I need to find specific information on how to join the course, as this information is not present in the current CONTEXT.",
+  "keywords": [
+    "how to join the course",
+    "course enrollment process",
+    "register for the course"
+  ]
+}
+```
+
+We need to save the actions, so let's do it:
+
+```python
+previous_actions.append(answer)
+```
+
+Save the search queries:
+
+```python
+keywords = answer['keywords']
+search_queries.extend(keywords)
+
+And perform the search:
+
+```python
+for k in keywords:
+    res = search(k)
+    search_results.extend(res)
+```
+
+Some of the search results will be duplicates, so we need 
+to remove them:
+
+
+```python
+def dedup(seq):
+    seen = set()
+    result = []
+    for el in seq:
+        _id = el['_id']
+        if _id in seen:
+            continue
+        seen.add(_id)
+        result.append(el)
+    return result
+
+search_results = dedup(search_results)
+```
+
+Now let's make another iteration - use the same code as previously, but remove variable initialization
+and increase the iteration number:
+
+
+```python
+# question = "how do I join the course?"
+
+# search_queries = []
+# search_results = []
+# previous_actions = []
+
+context = build_context(search_results)
+
+prompt = prompt_template.format(
+    question=question,
+    context=context,
+    search_queries="\n".join(search_queries),
+    previous_actions='\n'.join([json.dumps(a) for a in previous_actions]),
+    max_iterations=3,
+    iteration_number=2
+)
+print(prompt)
+
+answer_json = llm(prompt)
+answer = json.loads(answer_json)
+print(json.dumps(answer, indent=2))
+```
+
+Let's put everything together:
+
+```python
+question = "what do I need to do to be successful at module 1?"
+
+search_queries = []
+search_results = []
+previous_actions = []
+
+
+iteration = 0
+
+while True:
+    print(f'ITERATION #{iteration}...')
+
+    context = build_context(search_results)
+    prompt = prompt_template.format(
+        question=question,
+        context=context,
+        search_queries="\n".join(search_queries),
+        previous_actions='\n'.join([json.dumps(a) for a in previous_actions]),
+        max_iterations=3,
+        iteration_number=iteration
+    )
+
+    print(prompt)
+
+    answer_json = llm(prompt)
+    answer = json.loads(answer_json)
+    print(json.dumps(answer, indent=2))
+
+    previous_actions.append(answer)
+
+    action = answer['action']
+    if action != 'SEARCH':
+        break
+
+    keywords = answer['keywords']
+    search_queries = list(set(search_queries) | set(keywords))
+    
+    for k in keywords:
+        res = search(k)
+        search_results.extend(res)
+
+    search_results = dedup(search_results)
+    
+    iteration = iteration + 1
+    if iteration >= 4:
+        break
+
+    print()
+```
+
+Or, as a function:
 
 ```python
 def agentic_search(question):
@@ -333,64 +686,49 @@ def agentic_search(question):
     return answer
 ```
 
-**Explanation:**
-- Maintains state of search queries and results
-- Implements the decision-making loop
-- Handles search actions and result aggregation
-- Includes iteration limits and action history tracking
-
-# Part 3: Implementing Chat Assistant
-
-## 3.1 Creating the Chat Interface
-We create a basic chat interface for interacting with our agent.
+Test it:
 
 ```python
-class ChatInterface:
-    def __init__(self):
-        self.messages = []
-
-    def add_message(self, role, content):
-        self.messages.append({"role": role, "content": content})
-
-    def get_messages(self):
-        return self.messages
+agentic_search('how do I prepare for the course?')
 ```
 
-**Explanation:**
-- Manages the conversation history
-- Stores messages with their roles
-- Provides access to the message history
 
-## 3.2 Implementing the Tools Class
-We create a class to manage our agent's tools.
+# Part 3: Function calling 
+
+## Function calling in OpenAI
+
+We put all this logic inside our prompt. 
+
+But OpenAI and other providers provide a convenient 
+API for adding extra functionality like search.
+
+* https://platform.openai.com/docs/guides/function-calling
+
+It's called "function calling" - you define functions
+that the model can call, and if it decides to make a call,
+it returns structured output for that.
+
+For example, let's take our `search` function:
 
 ```python
-class Tools:
-    def __init__(self):
-        self.tools = []
+def search(query):
+    boost = {'question': 3.0, 'section': 0.5}
 
-    def add_tool(self, function, description):
-        self.tools.append({
-            "type": "function",
-            "name": description["name"],
-            "description": description["description"],
-            "parameters": description["parameters"]
-        })
+    results = index.search(
+        query=query,
+        filter_dict={'course': 'data-engineering-zoomcamp'},
+        boost_dict=boost,
+        num_results=5,
+        output_ids=True
+    )
 
-    def get_tools(self):
-        return self.tools
+    return results
 ```
 
-**Explanation:**
-- Manages the available tools
-- Stores tool descriptions and functions
-- Provides access to tool information
-
-## 3.3 Defining Tool Descriptions
-We define the JSON schemas for our tools.
+We describe it like that:
 
 ```python
-search_description = {
+search_tool = {
     "type": "function",
     "name": "search",
     "description": "Search the FAQ database",
@@ -406,7 +744,343 @@ search_description = {
         "additionalProperties": False
     }
 }
+```
 
+Here we have:
+
+- `name`: `search`
+- `description`: when to use it
+- `parameters`: all the arguments that the function can take 
+  and their description
+
+In order to use function calling, we'll use a newer API - 
+the "responses" API (not "chat completions" as previously):
+
+```python
+question = "How do I do well in module 1?"
+
+developer_prompt = """
+You're a course teaching assistant. 
+You're given a question from a course student and your task is to answer it.
+""".strip()
+
+tools = [search_tool]
+
+chat_messages = [
+    {"role": "developer", "content": developer_prompt},
+    {"role": "user", "content": question}
+]
+
+response = client.responses.create(
+    model='gpt-4o-mini',
+    input=chat_messages,
+    tools=tools
+)
+response.output
+```
+
+If the model thinks we should make a function call, it will
+tell us:
+
+```
+[ResponseFunctionToolCall(arguments='{"query":"How to do well in module 1"}', call_id='call_AwYwOak5Ljeidh4HbE3RxMZJ', name='search', type='function_call', id='fc_6848604db67881a298ec38121c1555ef0dee5fa0cdb59912', status='completed')]
+```
+
+Let's make a call to `search`:
+
+```python
+calls = response.output
+call = calls[0]
+call
+
+call_id = call.call_id
+call_id
+
+f_name = call.name
+f_name
+
+arguments = json.loads(call.arguments)
+arguments
+```
+
+Using `f_name` we can find the function we need:
+
+```python
+f = locals()[f_name]
+```
+
+And invoke it with the arguments:
+
+```python
+results = f(**arguments)
+```
+
+Now let's save the results as json:
+
+```python
+search_results = json.dumps(results, indent=2)
+print(search_results)
+```
+
+And save both the response and the result of the function call:
+
+
+```python
+chat_messages.append(call)
+
+chat_messages.append({
+    "type": "function_call_output",
+    "call_id": call.call_id,
+    "output": search_results,
+})
+```
+
+Now `chat_messages` contains both the call description 
+(so it keeps track of history) and the results
+
+Let's make another call to the model:
+
+```python
+response = client.responses.create(
+    model='gpt-4o-mini',
+    input=chat_messages,
+    tools=tools
+)
+```
+
+This time it should be the response (but also can be another call):
+
+```python
+r = response.output[0]
+print(r.content[0].text)
+```
+
+## Making multiple calls
+
+What if we want to make multiple calls? Change the developer prompt a little:
+
+```python
+developer_prompt = """
+You're a course teaching assistant. 
+You're given a question from a course student and your task is to answer it.
+If you look up something in FAQ, convert the student question into multiple queries.
+""".strip()
+
+chat_messages = [
+    {"role": "developer", "content": developer_prompt},
+    {"role": "user", "content": question}
+]
+
+response = client.responses.create(
+    model='gpt-4o-mini',
+    input=chat_messages,
+    tools=tools
+)
+```
+
+This time let's start to organize the code a little:
+
+
+Let's organize our code a little.
+
+First, create a function `do_call`:
+
+```python
+def do_call(tool_call_response):
+    function_name = tool_call_response.name
+    arguments = json.loads(tool_call_response.arguments)
+
+    f = globals()[function_name]
+    result = f(**arguments)
+
+    return {
+        "type": "function_call_output",
+        "call_id": tool_call_response.call_id,
+        "output": json.dumps(result, indent=2),
+    }
+```
+
+Now iterate over responses:
+
+```python
+for entry in response.output:
+    chat_messages.append(entry)
+    print(entry.type)
+
+    if entry.type == 'function_call':      
+        result = do_call(entry)
+        chat_messages.append(result)
+    elif entry.type == 'message':
+        print(entry.text) 
+```
+
+First call will probably be function call, so let's do another one:
+
+```python
+response = client.responses.create(
+    model='gpt-4o-mini',
+    input=chat_messages,
+    tools=tools
+)
+
+for entry in response.output:
+    chat_messages.append(entry)
+    print(entry.type)
+    print()
+
+    if entry.type == 'function_call':      
+        result = do_call(entry)
+        chat_messages.append(result)
+    elif entry.type == 'message':
+        print(entry.content[0].text) 
+```
+
+This one is a text response.
+
+## Putting everything together
+
+But what if it's not?
+
+Let's make two loops: 
+
+- First is the main Q&A loop - ask question, get back the answer
+- Second is the request loop - send requests until there's a message reply from the API
+
+```python
+developer_prompt = """
+You're a course teaching assistant. 
+You're given a question from a course student and your task is to answer it.
+
+Use FAQ if your own knowledge is not sufficient to answer the question.
+When using FAQ, perform deep topic exploration: make one request to FAQ,
+and then based on the results, make more requests.
+
+At the end of each response, ask the user a follow up question based on your answer.
+""".strip()
+
+chat_messages = [
+    {"role": "developer", "content": developer_prompt},
+]
+```
+
+```python
+while True: # main Q&A loop
+    question = input() # How do I do my best for module 1?
+    if question == 'stop':
+        break
+
+    message = {"role": "user", "content": question}
+    chat_messages.append(message)
+
+    while True: # request-response loop - query API till get a message
+        response = client.responses.create(
+            model='gpt-4o-mini',
+            input=chat_messages,
+            tools=tools
+        )
+
+        has_messages = False
+        
+        for entry in response.output:
+            chat_messages.append(entry)
+        
+            if entry.type == 'function_call':      
+                print('function_call:', entry)
+                print()
+                result = do_call(entry)
+                chat_messages.append(result)
+            elif entry.type == 'message':
+                print(entry.content[0].text)
+                print()
+                has_messages = True
+
+        if has_messages:
+            break
+```
+
+
+It's also possible that there's both message and tool calls,
+but we'll ignore this case for now. (It's easy to fix -
+just check if there are no function calls, and only then 
+ask the user for input.)
+
+
+Let's make it a bit nicer using HTML:
+
+```python
+from IPython.display import display, HTML
+import markdown # pip install markdown
+
+    
+
+developer_prompt = """
+You're a course teaching assistant. 
+You're given a question from a course student and your task is to answer it.
+
+Use FAQ if your own knowledge is not sufficient to answer the question.
+
+At the end of each response, ask the user a follow up question based on your answer.
+""".strip()
+
+chat_messages = [
+    {"role": "developer", "content": developer_prompt},
+]
+
+# Chat loop
+while True:
+    
+    if question.strip().lower() == 'stop':
+        print("Chat ended.")
+        break
+    print()
+
+    message = {"role": "user", "content": question}
+    chat_messages.append(message)
+
+    while True:  # inner request loop
+        response = client.responses.create(
+            model='gpt-4o-mini',
+            input=chat_messages,
+            tools=tools
+        )
+
+        has_messages = False
+
+        for entry in response.output:
+            chat_messages.append(entry)
+
+            if entry.type == "function_call":
+                result = do_call(entry)
+                chat_messages.append(result)
+                display_function_call(entry, result)
+
+            elif entry.type == "message":
+                display_response(entry)
+                has_messages = True
+
+        if has_messages:
+            break
+```
+
+## Using multiple tools
+
+What if we also want to use this chat app to add new entries to the FAQ?
+We'll need another function for it:
+
+```python
+def add_entry(question, answer):
+    doc = {
+        'question': question,
+        'text': answer,
+        'section': 'user added',
+        'course': 'data-engineering-zoomcamp'
+    }
+    index.append(doc)
+```
+
+Description:
+
+```python
 add_entry_description = {
     "type": "function",
     "name": "add_entry",
@@ -429,129 +1103,195 @@ add_entry_description = {
 }
 ```
 
-**Explanation:**
-- Defines the structure of each tool
-- Specifies required parameters
-- Includes descriptions for better understanding
-- Ensures proper validation of inputs
+We can just reuse the preivous code. But we can also clean it up
+and make it more modular. 
 
-## 3.4 Creating the Chat Assistant
-We implement the main chat assistant class.
+See the result in [`chat_assistant.py`](chat_assistant.py)
 
-```python
-class ChatAssistant:
-    def __init__(self, tools, developer_prompt, chat_interface, client):
-        self.tools = tools
-        self.developer_prompt = developer_prompt
-        self.chat_interface = chat_interface
-        self.client = client
+You can download it using `wget`:
 
-    def run(self):
-        while True:
-            user_input = input("You: ")
-            if user_input.lower() == 'quit':
-                print("Chat ended.")
-                break
-
-            self.chat_interface.add_message("user", user_input)
-            
-            # Process the input and generate response
-            response = self.process_input(user_input)
-            
-            self.chat_interface.add_message("assistant", response)
-            print(f"Assistant: {response}")
+```bash
+wget https://raw.githubusercontent.com/alexeygrigorev/rag-agents-workshop/refs/heads/main/chat_assistant.py
 ```
 
-**Explanation:**
-- Manages the chat interaction
-- Processes user input
-- Generates responses using the agent
-- Maintains conversation state
+Here we define multiple classes:
 
-## 3.5 Adding Tools to the Agent
-We register our tools with the agent.
+- `Tools` - manages function tools for the agent
+    - `add_tool(function, description)`: Register a function with its description
+    - `get_tools()`: Return list of registered tool descriptions
+    - `function_call(tool_call_response)`: Execute a function call and return result
+- `ChatInterface` - handles user input and display formatting
+    - `input()`: Get user input
+    - `display(message)`: Print a message
+    - `display_function_call(entry, result)`: Show function calls in HTML format
+    - `display_response(entry)`: Display AI responses with markdown
+- `ChatAssistant` - main orchestrator for chat conversations.
+    - `__init__(tools, developer_prompt, chat_interface, client)`: Initialize assistant
+    - `gpt(chat_messages)`: Make OpenAI API calls
+    - `run()`: Main chat loop handling user input and AI responses
+
+Let's use it:
 
 ```python
+import chat_assistant
+
 tools = chat_assistant.Tools()
 tools.add_tool(search, search_description)
-tools.add_tool(add_entry, add_entry_description)
-```
 
-**Explanation:**
-- Creates a tools manager
-- Registers each tool with its description
-- Makes tools available to the agent
-- Enables the agent to use the tools effectively
+tools.get_tools()
 
-# Part 4: Using PydanticAI
-
-## 4.1 Automating Tool Definitions
-Instead of manually defining tool descriptions, we can use Pydantic to automate this process.
-
-```python
-@chat_agent.tool
-def search_tool(ctx: RunContext, query: str) -> Dict[str, str]:
-    """
-    Search the FAQ for relevant entries matching the query.
-    """
-    return search(query)
-
-@chat_agent.tool
-def add_entry_tool(ctx: RunContext, question: str, answer: str) -> None:
-    """
-    Add a new question-answer entry to FAQ.
-    """
-    return add_entry(question, answer)
-```
-
-**Explanation:**
-- Uses Pydantic decorators to automatically generate tool descriptions
-- Type hints define the parameter structure
-- Docstrings provide the tool descriptions
-- Eliminates the need for manual JSON schema definitions
-
-## 4.2 Benefits of Using Pydantic
-- Automatic type validation
-- Self-documenting code
-- Reduced boilerplate
-- Better IDE support
-- Easier maintenance
-
-# Example Usage
-
-## Basic RAG Query
-```python
-question = "how do I prepare for the course?"
-answer = rag(question)
-```
-
-## Agentic Search
-```python
-question = "what do I need to do to be successful at module 1?"
-result = agentic_search(question)
-```
-
-## Using the Chat Assistant
-```python
 developer_prompt = """
 You're a course teaching assistant. 
 You're given a question from a course student and your task is to answer it.
+
 Use FAQ if your own knowledge is not sufficient to answer the question.
+
 At the end of each response, ask the user a follow up question based on your answer.
 """.strip()
 
 chat_interface = chat_assistant.ChatInterface()
+
 chat = chat_assistant.ChatAssistant(
     tools=tools,
     developer_prompt=developer_prompt,
     chat_interface=chat_interface,
     client=client
 )
+```
+
+And run it:
+
+```python
 chat.run()
 ```
 
-# Resources
+Now let's add the new tool:
 
-* [PydanticAI Documentation](https://ai.pydantic.dev/)
-* [OpenAI API Documentation](https://platform.openai.com/docs/api-reference)
-* [GitHub Codespaces](https://github.com/features/codespaces)
+```python
+tools.add_tool(add_entry, add_entry_description)
+tools.get_tools()
+```
+
+And talk with the assistant:
+
+- How do I do well for module 1?
+- Add this back to FAQ
+
+And check that it's in the index:
+
+```python
+index.docs[-1]
+```
+
+
+# Part 4: Using PydanticAI
+
+## Installing and using PydanticAI
+
+There are frameworks that make it easier for us to create
+agents
+
+One of them is [PydanticAI](https://ai.pydantic.dev/agents/):
+
+```bash
+pip install pydantic-ai
+```
+
+Let's import it:
+
+```python
+from pydantic_ai import Agent, RunContext
+```
+
+And create an agent:
+
+```python
+chat_agent = Agent(  
+    'openai:gpt-4o-mini',
+    system_prompt=developer_prompt
+)
+```
+
+Now we can use it to automate tool description:
+
+
+```python
+from typing import Dict
+
+
+@chat_agent.tool
+def search_tool(ctx: RunContext, query: str) -> Dict[str, str]:
+    """
+    Search the FAQ for relevant entries matching the query.
+
+    Parameters
+    ----------
+    query : str
+        The search query string provided by the user.
+
+    Returns
+    -------
+    list
+        A list of search results (up to 5), each containing relevance information 
+        and associated output IDs.
+    """
+    print(f"search('{query}')")
+    return search(query)
+
+
+@chat_agent.tool
+def add_entry_tool(ctx: RunContext, question: str, answer: str) -> None:
+    """
+    Add a new question-answer entry to FAQ.
+
+    This function creates a document with the given question and answer, 
+    tagging it as user-added content.
+
+    Parameters
+    ----------
+    question : str
+        The question text to be added to the index.
+
+    answer : str
+        The answer or explanation corresponding to the question.
+
+    Returns
+    -------
+    None
+    """
+    return add_entry(question, answer)
+```
+
+It reads the functions' docstrings to automatically
+create function definition, so we don't need to worry about it.
+
+Let's use it:
+
+```python
+user_prompt = "I just discovered the course. Can I join now?"
+agent_run = await chat_agent.run(user_prompt)
+print(agent_run.output)
+```
+
+If want to learn more about implementing chat
+applications with Pydantic AI:
+
+- https://ai.pydantic.dev/message-history/
+- https://ai.pydantic.dev/examples/chat-app/
+
+
+# Wrap up
+
+In this workshop, we took our RAG application
+and made it agentic, by first tweaking the prompts,
+and then using the "function calling" functionality
+from OpenAI.
+
+At the end, we put all the logic into the `chat_assistant.py ` script, and also explored PydanticAI to make it simpler.
+
+What's next:
+
+- MCP
+- Agent deployment
+- Agent monitoring
+
