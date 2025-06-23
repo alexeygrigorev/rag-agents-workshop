@@ -14,6 +14,30 @@ In this workshop we
 * I use GitHub Codespaces to run it (see [here](https://www.loom.com/share/80c17fbadc9442d3a4829af56514a194)) but you can use whatever environment you like.
 * Also, you need an [OpenAI account](https://openai.com/) (or an alternative provider).
 
+## Setting up Github Codespaces
+
+Github Codespaces is the recommended environment for this 
+workshop. But you can use any other environment with
+Jupyter Notebook, including your laptop and Google Colab.
+
+* Create a repository on GitHub, initialize it with README.md
+* Add the OpenAI key:
+    * Go to Settings -> Secrets and Variables (under Security) -> Codespaces
+    * Click "New repository secret"
+    * Name: `OPENAI_API_KEY`, Secret: your key
+    * Click "Add secret"
+* Create a codespace
+    * Click "Code" 
+    * Select the "Codespaces" tab
+    * "Create codespaces on main"
+
+## Installing required libraries
+
+Next we need to install the required libraries:
+
+```bash
+pip install jupyter openai minsearch requests
+```
 
 # Part 0: Basic RAG
 
