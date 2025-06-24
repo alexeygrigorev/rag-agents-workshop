@@ -8,6 +8,12 @@ In this workshop we
 - Give tools to our agents
 - Use PydanticAI to make it easier
 
+For this workshop, we will use the following FAQ documents from [our free courses](https://datatalks.club/blog/guide-to-free-online-courses-at-datatalks-club.html):
+
+* [Machine Learning Zoomcamp](https://docs.google.com/document/d/1LpPanc33QJJ6BSsyxVg-pWNMplal84TdZtq10naIhD8/edit?tab=t.0) 
+* [Data Engineering Zoomcamp](https://docs.google.com/document/d/19bnYs80DwuUimHM65UV3sylsCn2j1vziPOwzBwQrebw/edit?tab=t.0#heading=h.edeyusfgl4b7)
+* [MLOps Zoomcamp](https://docs.google.com/document/d/12TlBfhIiKtyBv8RnsoJR6F72bkPDGEvPOItJIxaEzE0/edit?tab=t.0)
+
 # Environment
 
 * For this workshop, all you need is Python with Jupyter.
@@ -94,6 +100,8 @@ for course in documents_raw:
 Index them:
 
 ```python
+from minsearch import AppendableIndex
+
 index = AppendableIndex(
     text_fields=["question", "text", "section"],
     keyword_fields=["course"]
@@ -454,27 +462,27 @@ Output templates:
 
 If you want to perform search, use this template:
 
-{
+{{
 "action": "SEARCH",
 "reasoning": "<add your reasoning here>",
 "keywords": ["search query 1", "search query 2", ...]
-}
+}}
 
 If you can answer the QUESTION using CONTEXT, use this template:
 
-{
+{{
 "action": "ANSWER_CONTEXT",
 "answer": "<your answer>",
 "source": "CONTEXT"
-}
+}}
 
 If the context doesn't contain the answer, use your own knowledge to answer the question
 
-{
+{{
 "action": "ANSWER",
 "answer": "<your answer>",
 "source": "OWN_KNOWLEDGE"
-}
+}}
 
 <QUESTION>
 {question}
@@ -830,7 +838,7 @@ arguments
 Using `f_name` we can find the function we need:
 
 ```python
-f = locals()[f_name]
+f = globals()[f_name]
 ```
 
 And invoke it with the arguments:
