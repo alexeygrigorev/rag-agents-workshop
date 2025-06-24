@@ -1168,7 +1168,7 @@ Let's use it:
 import chat_assistant
 
 tools = chat_assistant.Tools()
-tools.add_tool(search, search_description)
+tools.add_tool(search, search_tool)
 
 tools.get_tools()
 
