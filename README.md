@@ -1,5 +1,8 @@
 # From RAG to Agents: Building Smart AI Assistants
 
+Video: https://www.youtube.com/watch?v=GH3lrOsU3AU
+
+
 In this workshop we
 
 - Build a RAG application on the FAQ database
