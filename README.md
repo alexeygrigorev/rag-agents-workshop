@@ -103,7 +103,7 @@ for course in documents_raw:
 Index them:
 
 ```python
-from minsearch import AppendableIndex
+from minsearch.append import AppendableIndex
 
 index = AppendableIndex(
     text_fields=["question", "text", "section"],
