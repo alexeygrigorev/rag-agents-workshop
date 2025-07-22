@@ -913,10 +913,7 @@ response = client.responses.create(
 )
 ```
 
-This time let's start to organize the code a little:
-
-
-Let's organize our code a little.
+This time let's start to organize the code a little.
 
 First, create a function `do_call`:
 
