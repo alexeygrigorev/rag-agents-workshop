@@ -1014,7 +1014,7 @@ while True: # main Q&A loop
             tools=tools
         )
 
-        has_messages = False
+        has_tool_calls = False
         
         for entry in response.output:
             chat_messages.append(entry)
@@ -1024,21 +1024,18 @@ while True: # main Q&A loop
                 print()
                 result = do_call(entry)
                 chat_messages.append(result)
+                has_tool_calls = True
+
             elif entry.type == 'message':
                 print(entry.content[0].text)
                 print()
-                has_messages = True
 
-        if has_messages:
+        if not has_tool_calls:
             break
 ```
 
-
-It's also possible that there's both message and tool calls,
-but we'll ignore this case for now. (It's easy to fix -
-just check if there are no function calls, and only then 
-ask the user for input.)
-
+We only exit the inner loop if there are no function calls.
+In this case, we ask user for the next input (or "stop").
 
 Let's make it a bit nicer using HTML:
 
