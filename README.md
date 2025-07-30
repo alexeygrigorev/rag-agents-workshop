@@ -568,6 +568,8 @@ Save the search queries:
 ```python
 keywords = answer['keywords']
 search_queries.extend(keywords)
+```
+
 
 And perform the search:
 
