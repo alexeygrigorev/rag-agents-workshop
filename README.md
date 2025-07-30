@@ -1,7 +1,9 @@
 # From RAG to Agents: Building Smart AI Assistants
 
-Video: https://www.youtube.com/watch?v=GH3lrOsU3AU
+Videos:
 
+* Part 1: https://www.youtube.com/watch?v=GH3lrOsU3AU
+* Part 2: TBA
 
 In this workshop we
 
@@ -10,6 +12,13 @@ In this workshop we
 - Learn about agentic search
 - Give tools to our agents
 - Use PydanticAI to make it easier
+
+You can learn more about agents in the upcoming [AI Bootcamp course](https://maven.com/alexey-grigorev/from-rag-to-agents).
+Use code "DTC" to get $99 off.
+
+Based on the code of this workshop, we developed a library ["Toy AI Kit"](https://github.com/alexeygrigorev/toyaikit). 
+This library simplifies the interaction with OpenAI API when developing agents and helps better understand 
+how other agent libraries are implemented. 
 
 For this workshop, we will use the following FAQ documents from [our free courses](https://datatalks.club/blog/guide-to-free-online-courses-at-datatalks-club.html):
 
