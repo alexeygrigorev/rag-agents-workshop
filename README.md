@@ -3,7 +3,7 @@
 Videos:
 
 * Part 1: https://www.youtube.com/watch?v=GH3lrOsU3AU
-* Part 2: TBA
+* Part 2: https://www.youtube.com/watch?v=yS_hwnJusDk
 
 In this workshop we
 
