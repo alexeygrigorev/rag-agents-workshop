@@ -389,7 +389,7 @@ And get:
 
 Let's put this together:
 
-- First attempt to answer it with our know knowledge
+- First attempt to answer it with your own knowledge
 - If needed, do the lookup and then answer
 
 ```python
